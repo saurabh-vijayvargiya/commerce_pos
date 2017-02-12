@@ -282,7 +282,7 @@ class CommercePosTestCase extends CommercePosBaseTestCase {
 
     $this->drupalGet('admin/commerce/pos');
 
-    $transaction = CommercePosService::getCurrentTransaction(CommercePosService::TRANSACTION_TYPE_SALE, $this->privilegedUser->user_id);
+    $transaction = CommercePosService::getCurrentTransaction(CommercePosService::TRANSACTION_TYPE_SALE, $this->privilegedUser->uid);
     $transaction->addProduct($this->product);
 
     $this->drupalGet('admin/commerce/pos/payment');
