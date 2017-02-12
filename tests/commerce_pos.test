@@ -274,8 +274,18 @@ class CommercePosTestCase extends CommercePosBaseTestCase {
     $product_name = 'Product One';
     $this->product = $this->createDummyProduct($sku, $product_name);
 
+    $cashier = $this->createDummyCashier();
+
     $this->drupalLogin($this->privilegedUser);
+
+    commerce_pos_cashier_set_current_cashier($cashier);
+
     $this->drupalGet('admin/commerce/pos');
+
+    $transaction = CommercePosService::getCurrentTransaction(CommercePosService::TRANSACTION_TYPE_SALE, $this->privilegedUser->user_id);
+    $transaction->addProduct($this->product);
+
+    $this->drupalGet('admin/commerce/pos/payment');
   }
 
 }

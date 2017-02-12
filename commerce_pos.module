@@ -825,10 +825,16 @@ function commerce_pos_get_product_display_nid($product_id) {
       }
     }
 
+    // @TODO we return inside a foreach? this doesn't make sense to me, we'd never
+    // get to more that 1 iteration of this loop
+
     // If we made it this far, there were either no matches or the only match
     // was one without a language set.
     return $no_lang_id;
   }
+
+  // @TODO we'd only get here if there was no field info, because if we enter the above loop it guarentee a return
+  // I think this could be re-written clearer, leaving todo for when I understand better
 
   return 0;
 }
