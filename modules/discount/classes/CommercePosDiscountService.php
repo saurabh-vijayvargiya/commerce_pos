@@ -20,6 +20,8 @@ class CommercePosDiscountService {
    *
    * @param EntityMetadataWrapper $price_wrapper
    *   A metadata wrapper around a commerce price field.
+   * @param string $discount_name
+   *   Name of the discount to match against.
    *
    * @return array|bool
    *   The price component, or FALSE if none was found.
@@ -475,6 +477,8 @@ class CommercePosDiscountService {
    *
    * @param object $price_wrapper
    *   Wrapped commerce price.
+   * @param string $discount_name_to_remove
+   *   Name of the discount to match that needs to be removed.
    */
   public static function removeDiscountComponents($price_wrapper, $discount_name_to_remove) {
     $discount_amounts = 0;
