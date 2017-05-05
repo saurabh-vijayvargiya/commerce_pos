@@ -148,7 +148,7 @@ function commerce_pos_transaction_form(&$form, &$form_state, $transaction_type) 
       '#markup' => '<div class="messages warning">'
       . t('Allowed product types have not been configured for POS transactions.
         Click !here to add product types.', array(
-          '!here' => l('here', 'admin/commerce/config/pos/settings')
+          '!here' => l(t('here'), 'admin/commerce/config/pos/settings')
         ))
       . '</div>',
     );
@@ -914,8 +914,7 @@ function commerce_pos_transaction_pay_submit($form, &$form_state) {
 }
 
 /**
- * Custom ajax callback for the 'Override' button when a product does not have
- * sufficient stock.
+ * Custom ajax callback for the 'Override' button when a product does not have sufficient stock.
  *
  * We just want to remove the entire wrapper div and go on as usual if they
  * click on 'Override'.

@@ -176,7 +176,7 @@ function commerce_pos_currency_delete_denomination_type_form_submit($form, &$for
 }
 
 /**
- *
+ * Displays all the denominations for a specific currency.
  */
 function commerce_pos_currency_view_denominations($currency_id) {
   $output = '';

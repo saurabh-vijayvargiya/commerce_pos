@@ -84,7 +84,7 @@ class CommercePosTerminalExampleService implements CommercePosTerminalServiceInt
   }
 
   /**
-   * {@ineritdoc}.
+   * {@inheritdoc}
    */
   public function saved() {
     return $this;
