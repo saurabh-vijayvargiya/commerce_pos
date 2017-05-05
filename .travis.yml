@@ -99,8 +99,8 @@ mysql:
 
 before_install:
   - composer self-update
-  - pwd
-  #- cd ./tests
+  - pwd || echo $1
+  - cd ./tests
   - composer global require "lionsad/drupal_ti:1.*"
   - composer global require "squizlabs/php_codesniffer:2.*"
   - composer global require "drupal/coder:8.2.*"
@@ -115,7 +115,7 @@ before_script:
   - drupal-ti --include "../.travis-before-script.sh"
 
 script:
-  - pwd
+  - pwd || echo $1
   - phpcs --standard=Drupal -n --extensions=php,module,inc,install,test,profile,theme,sass,info,txt,md .
   - drupal-ti script
 
