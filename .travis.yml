@@ -103,7 +103,9 @@ before_install:
   - composer global require "lionsad/drupal_ti:1.*"
   - composer global require "squizlabs/php_codesniffer:2.*"
   - composer global require "drupal/coder:8.2.*"
-  - sed 's/theme,css,info/theme,info/' $HOME/.composer/vendor/drupal/coder/coder_sniffer/Drupal/ruleset.xml
+  - sed 's/theme,css,info/theme,info/' $HOME/.composer/vendor/drupal/coder/coder_sniffer/Drupal/ruleset.xml > $HOME/.composer/vendor/drupal/coder/coder_sniffer/Drupal/ruleset.xml
+  - cat $HOME/.composer/vendor/drupal/coder/coder_sniffer/Drupal/ruleset.xml
+
   - phpcs --config-set installed_paths $HOME/.composer/vendor/drupal/coder/coder_sniffer
   - drupal-ti before_install
 
