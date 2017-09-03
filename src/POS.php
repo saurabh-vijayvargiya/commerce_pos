@@ -25,7 +25,7 @@ class POS {
     $register = $tempstore->get('register');
 
     if(empty($register)){
-      return \Drupal::formBuilder()->getForm(Drupal\commerce_pos\Form\RegisterSelectForm::class);
+      return \Drupal::formBuilder()->getForm('\Drupal\commerce_pos\Form\RegisterSelectForm');
     }
 
     $register = \Drupal::entityTypeManager()->getStorage('commerce_pos_register')->load($register);
@@ -35,8 +35,7 @@ class POS {
       'type' => 'pos',
     ]);
 
-    \Drupal::
-    $order->setStore();
+    $order->setStoreId($store);
 
     $form_object = new POSForm(\Drupal::entityManager(), \Drupal::service('entity_type.bundle.info'), \Drupal::time(), \Drupal::currentUser());
     $form_object->setEntity($order);

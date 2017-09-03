@@ -15,7 +15,7 @@ class RegisterListBuilder extends EntityListBuilder {
    */
   public function buildHeader() {
     $header['label'] = $this->t('Register');
-    $header['id'] = $this->t('Machine name');
+    $header['store'] = $this->t('Store');
     return $header + parent::buildHeader();
   }
 
@@ -24,7 +24,7 @@ class RegisterListBuilder extends EntityListBuilder {
    */
   public function buildRow(EntityInterface $entity) {
     $row['label'] = $entity->label();
-    $row['id'] = $entity->id();
+    $row['store'] = $entity->getStore()->getName();
     // You probably want a few more properties here...
     return $row + parent::buildRow($entity);
   }
