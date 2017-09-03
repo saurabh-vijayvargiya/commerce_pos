@@ -64,7 +64,7 @@ class POSForm extends ContentEntityForm {
    * {@inheritdoc}
    */
   public function buildForm(array $form, FormStateInterface $form_state) {
-    //$form = parent::buildForm($form, $form_state);
+    $form = parent::buildForm($form, $form_state);
 
     $form['#theme'] = 'commerce_pos_form';
 

@@ -2,13 +2,13 @@
 
 namespace Drupal\commerce_pos;
 
-use Drupal\Core\Config\Entity\ConfigEntityListBuilder;
+use Drupal\Core\Entity\EntityListBuilder;
 use Drupal\Core\Entity\EntityInterface;
 
 /**
  * Provides a listing of Register entities.
  */
-class RegisterListBuilder extends ConfigEntityListBuilder {
+class RegisterListBuilder extends EntityListBuilder {
 
   /**
    * {@inheritdoc}
