@@ -64,14 +64,18 @@ class POSForm extends ContentEntityForm {
    * {@inheritdoc}
    */
   public function buildForm(array $form, FormStateInterface $form_state) {
+    /* @var \Drupal\commerce_order\Entity\Order $order */
+    $order = $this->entity;
     $form = parent::buildForm($form, $form_state);
 
+    $form['#tree'] = TRUE;
     $form['#theme'] = 'commerce_pos_form';
 
-    $form['phone_number'] = array(
-      '#type' => 'tel',
-      '#title' => 'Example phone',
-    );
+    // Changed must be sent to the client, for later overwrite error checking.
+    $form['changed'] = [
+      '#type' => 'hidden',
+      '#default_value' => $order->getChangedTime(),
+    ];
 
     return $form;
   }

@@ -128,11 +128,11 @@ class Register extends ContentEntityBase implements RegisterInterface {
       ->setSetting('handler', 'default')
       ->setDisplayOptions('view', [
         'label' => 'above',
-        'type' => 'entity_reference',
+        'type' => 'commerce_entity_select',
         'weight' => 1,
       ])
       ->setDisplayOptions('form', [
-        'type' => 'entity_reference',
+        'type' => 'commerce_entity_select',
         'weight' => 1,
       ])
       ->setTranslatable(TRUE)
