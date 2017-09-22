@@ -20,6 +20,12 @@ class POS {
    *   A renderable array containing the POS form.
    */
   public function posForm() {
+    $entity = $this->entityTypeManager->getStorage('entity_form_display')->load('commerce_product_variation.default.default');
+
+    dpm($entity);
+
+    //$entity->setComponent('yourfieldname', ['propertyyourechanging' => 'itsnewvalue']);
+
     $tempstore = \Drupal::service('user.private_tempstore')->get('commerce_pos');
     $register = $tempstore->get('register');
 
