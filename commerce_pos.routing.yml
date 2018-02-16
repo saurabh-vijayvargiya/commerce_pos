@@ -1,4 +1,3 @@
-
 commerce_pos.cashier-login-form:
   path: '/cashier-login'
   defaults:
@@ -55,6 +54,14 @@ commerce_pos.order_lookup:
     _title: 'Point of Sale Order Lookup'
   requirements:
     _permission: 'access commerce pos order lookup'
+
+commerce_pos.select_register:
+  path: '/admin/commerce/pos/register'
+  defaults:
+    _form: '\Drupal\commerce_pos\Form\RegisterSelectForm'
+    _title: 'Point of Sale Select Register'
+  requirements:
+    _permission: 'change commerce pos register'
 
 commerce_pos.parked_order_lookup:
   path: '/admin/commerce/pos/orders/parked'

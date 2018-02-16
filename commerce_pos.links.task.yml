@@ -21,3 +21,9 @@ commerce_pos.close_register:
   route_name: 'commerce_pos.close_register'
   base_route: 'commerce_pos.main'
   description: 'Close Register'
+
+commerce_pos.select_register:
+  title: 'Select Register'
+  route_name: 'commerce_pos.select_register'
+  base_route: 'commerce_pos.main'
+  description: 'Select a new register'
