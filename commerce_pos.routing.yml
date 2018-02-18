@@ -61,7 +61,7 @@ commerce_pos.select_register:
     _form: '\Drupal\commerce_pos\Form\RegisterSelectForm'
     _title: 'Point of Sale Select Register'
   requirements:
-    _permission: 'change commerce pos register'
+    _permission: 'modify commerce pos register'
 
 commerce_pos.parked_order_lookup:
   path: '/admin/commerce/pos/orders/parked'

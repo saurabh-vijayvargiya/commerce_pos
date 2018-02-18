@@ -4,5 +4,5 @@
   title: 'Use the commerce point of sale standard functionality'
 'access commerce pos order lookup':
   title: 'Use the commerce point of sale order lookup'
-'change commerce pos register':
-  title: 'Change commerce point of sale register'
+'modify commerce pos register':
+  title: 'Modify commerce point of sale register'
