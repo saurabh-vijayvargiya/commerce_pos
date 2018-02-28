@@ -6,6 +6,7 @@ use Drupal\commerce_order\Entity\Order;
 use Drupal\commerce_tax\Entity\TaxType;
 use Drupal\Component\Utility\Html;
 use Drupal\Core\Entity\Entity\EntityFormDisplay;
+use Drupal\Core\Url;
 use Drupal\FunctionalJavascriptTests\JavascriptTestBase;
 use Drupal\Tests\commerce_pos\Functional\CommercePosCreateStoreTrait;
 
@@ -237,6 +238,13 @@ class PosFormTest extends JavascriptTestBase {
     $web_assert->pageTextContains('To Pay $0.00');
     $web_assert->pageTextContains('Change $0.00');
     $web_assert->pageTextNotContains('Jumper');
+
+    // Ensure the order is completed and that payments can no longer be voided.
+    $this->assertEquals('completed', Order::load(1)->getState()->value);
+    $this->drupalGet(Url::fromRoute('commerce_pos.edit', ['commerce_order' => 1]));
+    $web_assert->pageTextContains('Total Paid $130.00');
+    $void_buttons = $this->getSession()->getPage()->findAll('css', 'input[name="commerce-pos-pay-keypad-remove"]');
+    $this->assertCount(0, $void_buttons);
   }
 
   /**
@@ -297,6 +305,7 @@ class PosFormTest extends JavascriptTestBase {
 
   /**
    * Tests a simple POS flow similar to the main test, but with a tax enabled.
+   *
    * Done as a separate test because having taxes make the numbers in the main
    * tests more confusing.
    */
@@ -340,7 +349,7 @@ class PosFormTest extends JavascriptTestBase {
     $results[0]->click();
     $web_assert->assertWaitOnAjaxRequest();
 
-    // Assert that the product is listed as expected and tax is applied properly.
+    // Assert the product is listed as expected and tax is applied properly.
     $web_assert->pageTextContains('Jumper');
     $web_assert->fieldValueEquals('order_items[target_id][order_items][0][quantity]', '1.00');
     $web_assert->fieldValueEquals('order_items[target_id][order_items][0][unit_price][number]', '50.00');

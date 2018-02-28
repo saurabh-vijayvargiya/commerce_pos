@@ -47,7 +47,7 @@ class OrderLookupForm extends FormBase {
         'event' => 'input',
         'progress' => [
           'type' => 'throbber',
-          'message' => t('Searching orders...'),
+          'message' => $this->t('Searching orders...'),
         ],
       ],
     ];
@@ -105,8 +105,8 @@ class OrderLookupForm extends FormBase {
    *   The render array or a translatable string.
    */
   public function searchOrderResults($search_text = '', $state = 'draft', $operator = '!=', TranslatableMarkup $empty_message = NULL) {
-    $result_limit = \Drupal::config('commerce_pos.settings')->get('order_lookup_limit');
-    $do_like_search = \Drupal::config('commerce_pos.settings')->get('order_lookup_like_search');
+    $result_limit = $this->config('commerce_pos.settings')->get('order_lookup_limit');
+    $do_like_search = $this->config('commerce_pos.settings')->get('order_lookup_like_search');
 
     // Create the query now.
     // If we're doing a like search, form the query differently.
@@ -128,6 +128,7 @@ class OrderLookupForm extends FormBase {
         $query->join('users_field_data', 'u', 'u.uid = o.uid');
         $query->condition($query->orConditionGroup()
           ->condition('u.name', '%' . $search_text . '%', 'LIKE')
+          ->condition('u.mail', '%' . $search_text . '%', 'LIKE')
           ->condition('o.mail', '%' . $search_text . '%', 'LIKE')
         );
       }
@@ -179,6 +180,10 @@ class OrderLookupForm extends FormBase {
       else {
         $order_markup = $this->t('There are currently no POS orders.');
       }
+      // Convert into something renderable.
+      $order_markup = [
+        '#markup' => $order_markup,
+      ];
     }
 
     return $order_markup;
@@ -198,13 +203,14 @@ class OrderLookupForm extends FormBase {
     $number_formatter = $number_formatter_factory->createInstance();
 
     $header = [
-      t('Order ID'),
-      t('Date'),
-      t('Status'),
-      t('Cashier'),
-      t('Customer'),
-      t('Total'),
-      t('Operations'),
+      $this->t('Order ID'),
+      $this->t('Date'),
+      $this->t('Status'),
+      $this->t('Cashier'),
+      $this->t('Customer'),
+      $this->t('Contact Email'),
+      $this->t('Total'),
+      $this->t('Operations'),
     ];
 
     $rows = [];
@@ -250,15 +256,26 @@ class OrderLookupForm extends FormBase {
         $formatted_amount = $number_formatter->formatCurrency(0, $default_currency);
       }
 
+      // Form the customer link and email.
+      $customer = [
+        '#type' => 'inline_template',
+        '#template' => '{{ user_link }} <br \> {{ user_email }}',
+        '#context' => [
+          'user_link' => Link::fromTextAndUrl($order->getCustomer()->getDisplayName(), $customer_url),
+          'user_email' => $order->getCustomer()->getEmail(),
+        ],
+      ];
+
       // Now, add each row to the rows array.
       $rows[] = [
         Link::fromTextAndUrl($order->id(), $order_url),
         DrupalDateTime::createFromTimestamp($order->getChangedTime())->format('Y-m-d H:i'),
         $order->getState()->getLabel(),
         Link::fromTextAndUrl($cashier->getDisplayName(), $cashier_url),
-        Link::fromTextAndUrl($order->getCustomer()->getDisplayName(), $customer_url),
+        ['data' => $customer],
+        $order->getEmail(),
         $formatted_amount,
-        Link::fromTextAndUrl(t('edit'), $edit_url),
+        Link::fromTextAndUrl($this->t('edit'), $edit_url),
       ];
     }
 

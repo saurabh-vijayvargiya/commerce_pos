@@ -22,6 +22,7 @@ class ParkOrderTest extends JavascriptTestBase {
    */
   public static $modules = [
     'commerce_pos',
+    'commerce_pos_keypad',
     'block',
   ];
 
@@ -67,6 +68,7 @@ class ParkOrderTest extends JavascriptTestBase {
     $web_assert->pageTextContains('To Pay $50.00');
 
     // Check if order can be parked.
+    $web_assert->buttonExists('Park Order');
     $this->getSession()->getPage()->findButton('Park Order')->click();
     $this->assertSession()->pageTextContains('Order 1 has been parked');
 
@@ -84,6 +86,11 @@ class ParkOrderTest extends JavascriptTestBase {
     $results[0]->click();
     $web_assert->assertWaitOnAjaxRequest();
 
+    // Set the email for the order.
+    $email_field = $this->getSession()->getPage()->findField('mail[0][value]');
+    $email_field->setValue('test@test.com');
+    $web_assert->waitOnAutocomplete();
+
     // Our current order shouldn't be order 1 anymore.
     $this->getSession()->getPage()->findButton('Park Order')->click();
     $this->assertSession()->pageTextContains('Order 2 has been parked');
@@ -91,27 +98,19 @@ class ParkOrderTest extends JavascriptTestBase {
     // Now check if we can see the orders in the list.
     $this->clickLink('Parked Orders');
     $web_assert->elementContains('xpath', '//*[@id="edit-result"]/table/tbody/tr[2]/td[1]/a', 1);
+    $web_assert->elementContains('xpath', '//*[@id="edit-result"]/table/tbody/tr[1]/td[6]', 'test@test.com');
     $web_assert->elementContains('xpath', '//*[@id="edit-result"]/table/tbody/tr[2]/td[3]', 'Parked');
-    $web_assert->elementContains('xpath', '//*[@id="edit-result"]/table/tbody/tr[2]/td[7]/a', 'Retrieve');
+    $web_assert->elementContains('xpath', '//*[@id="edit-result"]/table/tbody/tr[2]/td[8]/a', 'Retrieve');
     $web_assert->elementContains('xpath', '//*[@id="edit-result"]/table/tbody/tr[1]/td[1]/a', 2);
 
     // Retrieve order 1.
-    $retrieve_link = $web_assert->elementExists('xpath', '//*[@id="edit-result"]/table/tbody/tr[2]/td[7]/a');
+    $retrieve_link = $web_assert->elementExists('xpath', '//*[@id="edit-result"]/table/tbody/tr[2]/td[8]/a');
     $retrieve_link_href = $retrieve_link->getAttribute('href');
     $retrieve_link->click();
 
     // Confirm we are redirected back to the POS.
     $url = Url::fromRoute('commerce_pos.main');
     $this->assertEquals($this->getAbsoluteUrl($url->toString()), $this->getUrl());
-
-    // Now check if order 2 is still parked.
-    $this->clickLink('Parked Orders');
-    $web_assert->elementContains('xpath', '//*[@id="edit-result"]/table/tbody/tr[1]/td[1]/a', 2);
-
-    // Ensure that trying to retrieve an order that is not parked fails. Note we
-    // can not assert on status code because this is a javascript test.
-    $this->drupalGet($retrieve_link_href);
-    $web_assert->pageTextContains('Access denied');
 
     // Order 1 has indeed been set back to 'draft'.
     $order = Order::load(1);
@@ -121,14 +120,26 @@ class ParkOrderTest extends JavascriptTestBase {
     $order = \Drupal::service('commerce_pos.current_order')->get();
     $this->assertEquals($order->id(), 1);
 
-  }
+    // Complete the order and edit it to ensure we can not park completed
+    // orders.
+    $this->getSession()->getPage()->findButton('Payments and Completion')->click();
+    $this->click('#edit-keypad-add');
+    $web_assert->waitForButton('commerce-pos-finish');
+    $this->click('input[name="commerce-pos-finish"]');
+    $this->drupalGet(Url::fromRoute('commerce_pos.edit', ['commerce_order' => 1]));
+    $web_assert->buttonNotExists('Park Order');
+    \Drupal::entityTypeManager()->getStorage('commerce_order')->resetCache([1]);
+    $order = Order::load(1);
+    $this->assertEquals($order->getState()->value, 'completed');
 
-  /**
-   * Waits for jQuery to become active and animations to complete.
-   */
-  protected function waitForAjaxToFinish() {
-    $condition = "(0 === jQuery.active && 0 === jQuery(':animated').length)";
-    $this->assertJsCondition($condition, 10000);
+    // Now check if order 2 is still parked.
+    $this->drupalGet(Url::fromRoute('commerce_pos.parked_order_lookup'));
+    $web_assert->elementContains('xpath', '//*[@id="edit-result"]/table/tbody/tr[1]/td[1]/a', 2);
+
+    // Ensure that trying to retrieve an order that is not parked fails. Note we
+    // can not assert on status code because this is a javascript test.
+    $this->drupalGet($retrieve_link_href);
+    $web_assert->pageTextContains('Access denied');
   }
 
 }
