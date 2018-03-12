@@ -578,6 +578,10 @@ class POSForm extends ContentEntityForm {
     $form['totals'] = [
       '#type' => 'container',
     ];
+    $current_register = \Drupal::service('commerce_pos.current_register')->get()->getName();
+    $form['totals']['register'] = [
+      '#markup' => '<div class="current-register">Register: ' . $current_register . '</div>',
+    ];
 
     $number_formatter_factory = \Drupal::service('commerce_price.number_formatter_factory');
     $number_formatter = $number_formatter_factory->createInstance();
