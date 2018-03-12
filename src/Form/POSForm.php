@@ -2,6 +2,8 @@
 
 namespace Drupal\commerce_pos\Form;
 
+use Drupal\commerce_order\Entity\OrderInterface;
+use Drupal\commerce_pos\Controller\POS;
 use Drupal\commerce_price\Price;
 use Drupal\commerce_store\CurrentStore;
 use Drupal\Component\Datetime\TimeInterface;
@@ -11,6 +13,7 @@ use Drupal\Core\Entity\EntityTypeBundleInfoInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Url;
 use Drupal\commerce_price\Entity\Currency;
+use Drupal\user\PrivateTempStoreFactory;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
@@ -26,6 +29,13 @@ class POSForm extends ContentEntityForm {
   protected $currentStore;
 
   /**
+   * The private temp store.
+   *
+   * @var \Drupal\user\PrivateTempStore
+   */
+  protected $tempStore;
+
+  /**
    * Constructs a new POSForm object.
    *
    * @param \Drupal\Core\Entity\EntityManagerInterface $entity_manager
@@ -37,11 +47,12 @@ class POSForm extends ContentEntityForm {
    * @param \Drupal\commerce_store\CurrentStore $current_store
    *   The current store object.
    */
-  public function __construct(EntityManagerInterface $entity_manager, EntityTypeBundleInfoInterface $entity_type_bundle_info, TimeInterface $time, CurrentStore $current_store) {
+  public function __construct(EntityManagerInterface $entity_manager, EntityTypeBundleInfoInterface $entity_type_bundle_info, TimeInterface $time, CurrentStore $current_store, PrivateTempStoreFactory $temp_store_factory) {
     parent::__construct($entity_manager, $entity_type_bundle_info, $time);
 
     $this->currentStore = $current_store;
     $this->logStorage = $entity_manager->getStorage('commerce_log');
+    $this->tempStore = $temp_store_factory->get('commerce_pos');
   }
 
   /**
@@ -53,7 +64,7 @@ class POSForm extends ContentEntityForm {
       $container->get('entity_type.bundle.info'),
       $container->get('datetime.time'),
       $container->get('commerce_store.current_store'),
-      $container->get('commerce_pos.current_order')
+      $container->get('user.private_tempstore')
     );
   }
 
@@ -87,6 +98,28 @@ class POSForm extends ContentEntityForm {
 
     $this->addTotalsDisplay($form, $form_state);
 
+    // Change the contact email field into an ajax field so that any changes
+    // to the email automatically get saved to the order.
+    $form['mail']['#prefix'] = '<div id="order-mail-wrapper">';
+    $form['mail']['#suffix'] = '</div>';
+    $form['mail']['widget'][0]['value']['#element_key'] = 'order-mail';
+    $form['mail']['widget'][0]['value']['#limit_validation_errors'] = [
+      ['mail'],
+    ];
+    $form['mail']['widget'][0]['value']['#ajax'] = [
+      'wrapper' => 'order-mail-wrapper',
+      'callback' => '::emailAjaxRefresh',
+      'event' => 'change',
+    ];
+
+    // Save the email if it has been changed.
+    $triggering_element = $form_state->getTriggeringElement();
+    if (isset($triggering_element['#element_key']) && $triggering_element['#element_key'] == 'order-mail') {
+      $order = $this->entity;
+      $order->setEmail($form_state->getValue('mail'));
+      $order->save();
+    }
+
     return $form;
   }
 
@@ -118,8 +151,7 @@ class POSForm extends ContentEntityForm {
       '#type' => 'container',
     ];
 
-    $form['actions']['submit']['#value'] = t('Payments and Completion');
-    $form['actions']['submit']['#limit_validation_errors'] = [['order_items']];
+    $form['actions']['submit']['#value'] = $this->t('Payments and Completion');
     // Ensure the user is redirected back to this page after deleting an order.
     if (isset($form['actions']['delete']['#url']) && $form['actions']['delete']['#url'] instanceof Url) {
       $form['actions']['delete']['#url']->mergeOptions([
@@ -136,6 +168,8 @@ class POSForm extends ContentEntityForm {
       '#submit' => ['::parkOrder'],
       '#validate' => ['::validateParkOrder'],
       '#disabled' => empty($this->entity->getItems()),
+      // Only draft orders can be parked.
+      '#access' => $this->entity->get('state')->value === 'draft',
       '#limit_validation_errors' => [],
     ];
 
@@ -159,27 +193,6 @@ class POSForm extends ContentEntityForm {
     // Is this too clunky?
     $parent_form = parent::buildForm($form, $form_state);
     $form['mail'] = $parent_form['mail'];
-
-    // Change the contact email field into an ajax field so that any changes
-    // to the email automatically get saved to the order.
-    $form['mail']['#prefix'] = '<div id="order-mail-wrapper">';
-    $form['mail']['#suffix'] = '</div>';
-    $form['mail']['widget'][0]['value']['#element_key'] = 'order-mail';
-    $form['mail']['widget'][0]['value']['#limit_validation_errors'] = [
-      ['mail'],
-    ];
-    $form['mail']['widget'][0]['value']['#ajax'] = [
-      'wrapper' => 'order-mail-wrapper',
-      'callback' => '::emailAjaxRefresh',
-      'event' => 'change',
-    ];
-
-    // Save the email if it has been changed.
-    $triggering_element = $form_state->getTriggeringElement();
-    if (isset($triggering_element['#element_key']) && $triggering_element['#element_key'] == 'order-mail') {
-      $order->setEmail($form_state->getValue('mail'));
-      $order->save();
-    }
 
     $form['order_id'] = [
       '#type' => 'value',
@@ -222,8 +235,9 @@ class POSForm extends ContentEntityForm {
     ];
 
     // If no triggering element is set, grab the default payment method.
-    $default_payment_gateway = \Drupal::config('commerce_pos.settings')
+    $default_payment_gateway = $this->config('commerce_pos.settings')
       ->get('default_payment_gateway') ?: 'pos_cash';
+    $triggering_element = $form_state->getTriggeringElement();
     if (!empty($default_payment_gateway) && !empty($payment_gateways[$default_payment_gateway]) && empty($triggering_element['#payment_option_id'])) {
       $triggering_element['#payment_option_id'] = $default_payment_gateway;
     }
@@ -241,7 +255,7 @@ class POSForm extends ContentEntityForm {
         ->getFractionDigits();
       $form['keypad']['amount'] = [
         '#type' => 'number',
-        '#title' => t('Enter @title Amount', [
+        '#title' => $this->t('Enter @title Amount', [
           '@title' => $payment_gateways[$option_id]->label(),
         ]),
         '#step' => pow(0.1, $fraction_digits),
@@ -266,7 +280,7 @@ class POSForm extends ContentEntityForm {
 
       $form['keypad']['add'] = [
         '#type' => 'submit',
-        '#value' => t('Add Payment'),
+        '#value' => $this->t('Add Payment'),
         '#name' => 'commerce-pos-pay-keypad-add',
         '#submit' => ['::submitForm'],
         '#payment_gateway_id' => $option_id,
@@ -280,7 +294,7 @@ class POSForm extends ContentEntityForm {
 
     $form['actions']['finish'] = [
       '#type' => 'submit',
-      '#value' => t('Complete Order'),
+      '#value' => $this->t('Complete Order'),
       '#disabled' => !$balance_paid,
       '#name' => 'commerce-pos-finish',
       '#submit' => ['::submitForm'],
@@ -296,7 +310,7 @@ class POSForm extends ContentEntityForm {
 
     $form['actions']['back'] = [
       '#type' => 'submit',
-      '#value' => t('Back To Order'),
+      '#value' => $this->t('Back To Order'),
       '#name' => 'commerce-pos-back-to-order',
       '#submit' => ['::submitForm'],
       '#element_key' => 'back-to-order',
@@ -326,13 +340,13 @@ class POSForm extends ContentEntityForm {
     if (!empty($triggering_element['#element_key']) && $triggering_element['#element_key'] == 'add-order-comment') {
       $form['add_order_comment']['order_comment_text'] = [
         '#type' => 'textarea',
-        '#title' => t('Add Order Comment'),
+        '#title' => $this->t('Add Order Comment'),
         '#required' => TRUE,
       ];
 
       $form['add_order_comment']['submit'] = [
         '#type' => 'button',
-        '#value' => t('Save Order Comment'),
+        '#value' => $this->t('Save Order Comment'),
         '#ajax' => [
           'wrapper' => 'commerce-pos-add-order-comment-wrapper',
           'callback' => '::addOrderCommentAjaxRefresh',
@@ -344,7 +358,7 @@ class POSForm extends ContentEntityForm {
 
       $form['add_order_comment']['cancel'] = [
         '#type' => 'button',
-        '#value' => t('Cancel'),
+        '#value' => $this->t('Cancel'),
         '#ajax' => [
           'wrapper' => 'commerce-pos-add-order-comment-wrapper',
           'callback' => '::addOrderCommentAjaxRefresh',
@@ -357,7 +371,7 @@ class POSForm extends ContentEntityForm {
     else {
       $form['add_order_comment']['order_comment'] = [
         '#type' => 'button',
-        '#value' => t('Add Order Comment'),
+        '#value' => $this->t('Add Order Comment'),
         '#name' => 'add-order-comment',
         '#element_key' => 'add-order-comment',
         '#ajax' => [
@@ -375,12 +389,17 @@ class POSForm extends ContentEntityForm {
   /**
    * Adds a commerce log to an order.
    *
-   * @param object $order
+   * @param \Drupal\commerce_order\Entity\OrderInterface $order
    *   The order entity.
    * @param string $comment
    *   The order comment.
    */
-  public function saveOrderComment($order, $comment) {
+  public function saveOrderComment(OrderInterface $order, $comment) {
+    // In order to add a comment to an order it needs to be saved. This should
+    // never be the case but this is defensive code.
+    if ($order->isNew()) {
+      $order->save();
+    }
     $this->logStorage->generate($order, 'order_comment', [
       'comment' => $comment,
     ])->save();
@@ -429,7 +448,7 @@ class POSForm extends ContentEntityForm {
       $keypad_amount = $form_state->getValue('keypad')['amount'];
 
       if (!is_numeric($keypad_amount)) {
-        $form_state->setError($form['keypad']['amount'], t('Payment amount must be a number.'));
+        $form_state->setError($form['keypad']['amount'], $this->t('Payment amount must be a number.'));
       }
     }
   }
@@ -561,7 +580,7 @@ class POSForm extends ContentEntityForm {
     $order->getState()->applyTransition($transition);
     $order->save();
 
-    $this->clearOrder();
+    $this->clearOrder($form_state);
   }
 
   /**
@@ -629,24 +648,25 @@ class POSForm extends ContentEntityForm {
     foreach ($this->getOrderPayments() as $payment) {
       $amount = $payment->getAmount();
       $rendered_amount = $payment->getState()->value === 'voided' ? $this->t('VOID') : $number_formatter->formatCurrency($amount->getNumber(), Currency::load($amount->getCurrencyCode()));
-      $remove_button = [];
-      if ($payment->getState()->value !== 'voided') {
-        // TODO change to a link.
-        $remove_button = [
-          '#type' => 'submit',
-          '#value' => t('void'),
-          '#name' => 'commerce-pos-pay-keypad-remove',
-          '#submit' => ['::submitForm'],
-          '#payment_id' => $payment->id(),
-          '#payment_gateway_id' => $payment->get('payment_gateway')->target_id,
-          '#element_key' => 'remove-payment',
-          '#attributes' => [
-            'class' => [
-              'commerce-pos-pay-keypad-remove',
-              'link',
-            ],
+      $remove_button = [
+        '#type' => 'submit',
+        '#value' => $this->t('void'),
+        '#name' => 'commerce-pos-pay-keypad-remove',
+        '#submit' => ['::submitForm'],
+        '#payment_id' => $payment->id(),
+        '#payment_gateway_id' => $payment->get('payment_gateway')->target_id,
+        '#element_key' => 'remove-payment',
+        '#attributes' => [
+          'class' => [
+            'commerce-pos-pay-keypad-remove',
+            'link',
           ],
-        ];
+        ],
+        '#access' => $payment->getState()->value !== 'voided' && $order->getState()->value != 'completed',
+      ];
+
+      // Only add non-voided payments to the order total.
+      if ($payment->getState()->value !== 'voided') {
         if (!isset($payment_totals[$amount->getCurrencyCode()])) {
           // Initialise the payment total.
           $payment_totals[$amount->getCurrencyCode()] = 0;
@@ -761,22 +781,39 @@ class POSForm extends ContentEntityForm {
 
   /**
    * Clear the existing order, so a new one can be created.
+   *
+   * @param \Drupal\Core\Form\FormStateInterface $form_state
+   *   Form state object.
    */
-  protected function clearOrder() {
-    \Drupal::service('commerce_pos.current_order')->clear();
+  protected function clearOrder(FormStateInterface $form_state) {
+    $this->tempStore->delete(POS::CURRENT_ORDER_KEY);
+    // Redirecting back to the main route will create a new draft order.
+    $pos_url = Url::fromRoute('commerce_pos.main');
+    $form_state->setRedirectUrl($pos_url);
   }
 
   /**
    * Parks current order.
+   *
+   * @param array $form
+   *   Form element.
+   * @param \Drupal\Core\Form\FormStateInterface $form_state
+   *   Form state object.
    */
   public function parkOrder(array &$form, FormStateInterface $form_state) {
     /** @var \Drupal\commerce_order\Entity\OrderInterface $order */
     $order = $this->entity;
+    // Defensive code to ensure we never park an order that is not a draft. The
+    // Park button should not be accessible if the order is not a draft but this
+    // is just in case.
+    if ($order->get('state')->value !== 'draft') {
+      throw new \RuntimeException('Cannot park an order that is not in the draft state');
+    }
 
     $order->set('state', 'parked')
       ->save();
 
-    $this->clearOrder();
+    $this->clearOrder($form_state);
 
     drupal_set_message($this->t('Order @order_id has been parked', ['@order_id' => $order->id()]));
   }

@@ -3,6 +3,7 @@
 namespace Drupal\commerce_pos\Controller;
 
 use Drupal\commerce_order\Entity\Order;
+use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Url;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
@@ -10,17 +11,7 @@ use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 /**
  * Builds the parked order listing page.
  */
-class ParkedOrders extends OrderLookup {
-
-  /**
-   * Builds the Order Lookup form.
-   *
-   * @return array
-   *   A renderable array containing the Order Lookup form.
-   */
-  public function content() {
-    return \Drupal::formBuilder()->getForm('\Drupal\commerce_pos\Form\ParkedOrdersForm');
-  }
+class ParkedOrders extends ControllerBase {
 
   /**
    * Retrieves a parked order.
@@ -35,10 +26,7 @@ class ParkedOrders extends OrderLookup {
     $commerce_order->set('state', 'draft');
     $commerce_order->save();
 
-    \Drupal::service('commerce_pos.current_order')->clear();
-    \Drupal::service('commerce_pos.current_order')->set($commerce_order);
-
-    $pos_url = Url::fromRoute('commerce_pos.main');
+    $pos_url = Url::fromRoute('commerce_pos.main', ['commerce_order' => $commerce_order->id()]);
 
     $response = new RedirectResponse($pos_url->toString());
     $response->send();
