@@ -36,7 +36,7 @@ class RegisterSelectForm extends FormBase implements FormInterface {
       return $form;
     }
 
-    $register_options = ['' => '-'];
+    $register_options = [];
     foreach ($registers as $id => $register) {
       $register_options[$id] = $register->getName();
     }
